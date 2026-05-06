@@ -25,9 +25,11 @@ RUN /opt/miniforge/envs/boltz2/bin/pip install --no-cache-dir \
     --index-url https://download.pytorch.org/whl/cu124 \
     torch==2.5.1
 
-# Install boltz2 + GCS client (uses the torch already installed above)
+# Install boltz2 with [cuda] extra (cuequivariance_torch for triangular_mult kernel)
+# and GCS client. The pinned torch above satisfies boltz's constraint, so it is
+# not reinstalled; the [cuda] extra adds cuequivariance_torch on top.
 RUN /opt/miniforge/envs/boltz2/bin/pip install --no-cache-dir \
-    boltz \
+    "boltz[cuda]" \
     google-cloud-storage
 
 # Copy scripts
