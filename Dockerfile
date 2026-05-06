@@ -4,9 +4,11 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV PATH="/opt/miniforge/bin:${PATH}"
 ENV BOLTZ_CACHE="/workspace/.boltz_cache"
 
-# System deps
+# System deps. build-essential is needed at runtime: Triton (used by torch
+# 2.11) JIT-compiles GPU kernels via a C compiler on first invocation, and
+# crashes with "Failed to find C compiler" without one.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    wget ca-certificates git && \
+    wget ca-certificates git build-essential && \
     rm -rf /var/lib/apt/lists/*
 
 # Install miniforge
