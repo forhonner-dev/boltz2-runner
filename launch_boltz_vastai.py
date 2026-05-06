@@ -55,7 +55,7 @@ def search_offers(min_gpu_ram=24, max_price=0.40, min_reliability=0.95, min_comp
         f"gpu_ram>={min_gpu_ram} "
         f"dph<={max_price} "
         f"reliability>={min_reliability} "
-        f"cuda_vers>=12.0 "
+        f"cuda_vers>=13.0 "
         f"compute_cap>={min_compute_cap} "
         f"rentable=true "
         f"num_gpus=1"

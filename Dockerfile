@@ -18,16 +18,9 @@ RUN wget -qO /tmp/miniforge.sh https://github.com/conda-forge/miniforge/releases
 RUN conda create -n boltz2 python=3.12 pip -y && \
     conda clean -afy
 
-# Install torch first, pinned to a CUDA build (cu124) matching the base image
-# and the driver versions Vast.ai hosts typically ship (CUDA 12.4–12.8).
-# Avoids pulling a torch wheel built for a CUDA toolkit newer than the host driver.
-RUN /opt/miniforge/envs/boltz2/bin/pip install --no-cache-dir \
-    --index-url https://download.pytorch.org/whl/cu124 \
-    torch==2.5.1
-
-# Install boltz2 with [cuda] extra (cuequivariance_torch for triangular_mult kernel)
-# and GCS client. The pinned torch above satisfies boltz's constraint, so it is
-# not reinstalled; the [cuda] extra adds cuequivariance_torch on top.
+# Install boltz2 with [cuda] extra. As of boltz==2.2.1 + cuequivariance_torch
+# 0.10, this resolves to torch 2.11+cu130, so the launcher must restrict offer
+# search to hosts with cuda_vers>=13.0 (NVIDIA driver 565+).
 RUN /opt/miniforge/envs/boltz2/bin/pip install --no-cache-dir \
     "boltz[cuda]" \
     google-cloud-storage
