@@ -15,7 +15,7 @@ RUN wget -qO /tmp/miniforge.sh https://github.com/conda-forge/miniforge/releases
     rm /tmp/miniforge.sh
 
 # Create boltz2 environment
-RUN conda create -n boltz2 python=3.12 -y && \
+RUN conda create -n boltz2 python=3.12 pip -y && \
     conda clean -afy
 
 # Install boltz2 + GCS client
