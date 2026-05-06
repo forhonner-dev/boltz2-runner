@@ -49,13 +49,14 @@ def encode_file_b64(path):
         return base64.b64encode(f.read()).decode()
 
 
-def search_offers(min_gpu_ram=24, max_price=0.40, min_reliability=0.95):
+def search_offers(min_gpu_ram=24, max_price=0.40, min_reliability=0.95, min_compute_cap=800):
     """Search for suitable GPU offers."""
     query = (
         f"gpu_ram>={min_gpu_ram} "
         f"dph<={max_price} "
         f"reliability>={min_reliability} "
         f"cuda_vers>=12.0 "
+        f"compute_cap>={min_compute_cap} "
         f"rentable=true "
         f"num_gpus=1"
     )

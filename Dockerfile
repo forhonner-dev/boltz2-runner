@@ -18,9 +18,16 @@ RUN wget -qO /tmp/miniforge.sh https://github.com/conda-forge/miniforge/releases
 RUN conda create -n boltz2 python=3.12 pip -y && \
     conda clean -afy
 
-# Install boltz2 + GCS client
+# Install torch first, pinned to a CUDA build (cu124) matching the base image
+# and the driver versions Vast.ai hosts typically ship (CUDA 12.4–12.8).
+# Avoids pulling a torch wheel built for a CUDA toolkit newer than the host driver.
 RUN /opt/miniforge/envs/boltz2/bin/pip install --no-cache-dir \
-    "boltz[cuda]" \
+    --index-url https://download.pytorch.org/whl/cu124 \
+    torch==2.5.1
+
+# Install boltz2 + GCS client (uses the torch already installed above)
+RUN /opt/miniforge/envs/boltz2/bin/pip install --no-cache-dir \
+    boltz \
     google-cloud-storage
 
 # Copy scripts
