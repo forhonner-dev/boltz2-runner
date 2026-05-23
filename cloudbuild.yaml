@@ -1,0 +1,46 @@
+# Cloud Build config for building & pushing the Boltz-2 runner image
+# into DiscoveryLedger's Artifact Registry.
+#
+# Triggered on push to main by a Cloud Build trigger in project
+# discoveryledger-dev (connected to forhonner-dev/boltz2-runner via the
+# Cloud Build GitHub App).
+#
+# The image is large (CUDA 13 base + torch 2.11 + boltz[cuda] + weights
+# fetched at first run), so we use a high-CPU machine and a long timeout.
+
+substitutions:
+  _AR_HOST: us-central1-docker.pkg.dev
+  _AR_PROJECT: discoveryledger-dev
+  _AR_REPO: discoveryledger
+  _IMAGE: boltz2-runner
+
+options:
+  machineType: E2_HIGHCPU_32
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: 3600s
+
+steps:
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --tag=${_AR_HOST}/${_AR_PROJECT}/${_AR_REPO}/${_IMAGE}:git-${SHORT_SHA}
+      - --tag=${_AR_HOST}/${_AR_PROJECT}/${_AR_REPO}/${_IMAGE}:latest-dev
+      - .
+
+  - id: push-sha
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_AR_HOST}/${_AR_PROJECT}/${_AR_REPO}/${_IMAGE}:git-${SHORT_SHA}
+
+  - id: push-latest
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_AR_HOST}/${_AR_PROJECT}/${_AR_REPO}/${_IMAGE}:latest-dev
+
+images:
+  - ${_AR_HOST}/${_AR_PROJECT}/${_AR_REPO}/${_IMAGE}:git-${SHORT_SHA}
+  - ${_AR_HOST}/${_AR_PROJECT}/${_AR_REPO}/${_IMAGE}:latest-dev
