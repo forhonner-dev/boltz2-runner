@@ -73,10 +73,21 @@ def run_prediction(input_dir, output_dir, recycling_steps=3, diffusion_samples=1
     return results
 
 
-def upload_results(output_dir, bucket_name, job_name, sa_key_path):
-    """Upload all result files to GCS."""
+def upload_results(output_dir, bucket_name, job_name, sa_key_path=None):
+    """Upload all result files to GCS.
+
+    Auth precedence:
+      1. ``sa_key_path`` (explicit service-account JSON) — legacy path used by
+         the Vast.AI launcher; pass via ``--gcs-sa-key`` or env var.
+      2. Application Default Credentials — used automatically on GKE
+         Workload Identity (the DiscoveryLedger production path) and any
+         environment where ``GOOGLE_APPLICATION_CREDENTIALS`` is exported.
+    """
     print(f"\nUploading results to gs://{bucket_name}/{job_name}/...")
-    client = storage.Client.from_service_account_json(sa_key_path)
+    if sa_key_path:
+        client = storage.Client.from_service_account_json(sa_key_path)
+    else:
+        client = storage.Client()
     bucket = client.bucket(bucket_name)
 
     output_dir = Path(output_dir)
@@ -100,7 +111,9 @@ def main():
     parser.add_argument("--diffusion-samples", type=int, default=1)
     parser.add_argument("--use-msa-server", action="store_true")
     parser.add_argument("--gcs-bucket", required=True)
-    parser.add_argument("--gcs-sa-key", required=True)
+    # Optional: explicit service-account JSON path. Omit to use ADC
+    # (Workload Identity on GKE, metadata server, GOOGLE_APPLICATION_CREDENTIALS).
+    parser.add_argument("--gcs-sa-key", default=None)
     args = parser.parse_args()
 
     results = run_prediction(

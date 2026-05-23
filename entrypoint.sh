@@ -6,10 +6,15 @@ source /opt/miniforge/bin/activate boltz2
 # --- Configuration from environment variables ---
 # Required:
 #   GCS_BUCKET       - GCS bucket name
-#   GCS_SA_KEY_B64   - base64-encoded GCS service account JSON key
-#   GCS_INPUT_PREFIX - GCS prefix for inputs
-#   JOB_NAME         - name for this job
+#   GCS_INPUT_PREFIX - GCS prefix for inputs (e.g. "cofold-input/<workflow_id>")
+#   JOB_NAME         - name for this job; also the GCS output prefix
+#                      (e.g. "cofold-output/<workflow_id>")
 # Optional:
+#   GCS_SA_KEY_B64    - base64-encoded SA JSON. ONLY needed when running
+#                       outside of a workload-identity-enabled environment
+#                       (e.g., local docker, Vast.AI). On GKE Workload
+#                       Identity, leave it unset and Application Default
+#                       Credentials are picked up automatically.
 #   RECYCLING_STEPS   - recycling iterations (default: 3)
 #   DIFFUSION_SAMPLES - number of structure samples (default: 1)
 #   USE_MSA_SERVER    - set to "true" to use mmseqs2 MSA server
@@ -17,15 +22,24 @@ source /opt/miniforge/bin/activate boltz2
 WORKDIR="/workspace/boltz2_run"
 mkdir -p "$WORKDIR/inputs" "$WORKDIR/results" "$BOLTZ_CACHE"
 
-# Set up GCS credentials
-echo "$GCS_SA_KEY_B64" | base64 -d > /tmp/gcs_key.json
-export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcs_key.json
+# Optional explicit SA key path — only set GOOGLE_APPLICATION_CREDENTIALS when
+# a base64 key is actually provided. Otherwise google-cloud-storage picks up
+# Workload Identity / metadata-server credentials transparently.
+GCS_SA_KEY_PATH=""
+if [ -n "${GCS_SA_KEY_B64:-}" ]; then
+    echo "GCS_SA_KEY_B64 is set — writing key to /tmp/gcs_key.json (legacy path)."
+    echo "$GCS_SA_KEY_B64" | base64 -d > /tmp/gcs_key.json
+    export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcs_key.json
+    GCS_SA_KEY_PATH=/tmp/gcs_key.json
+else
+    echo "GCS_SA_KEY_B64 not set — using Application Default Credentials (Workload Identity)."
+fi
 
 # Download model weights on first run
 echo "Ensuring model weights are cached..."
 boltz predict --help > /dev/null 2>&1 || true
 
-# Download inputs from GCS
+# Download inputs from GCS using ADC (or the SA key if one was provided).
 echo "Downloading inputs from gs://$GCS_BUCKET/$GCS_INPUT_PREFIX/..."
 python -c "
 from google.cloud import storage
@@ -57,6 +71,11 @@ if [ "$USE_MSA_SERVER" = "true" ]; then
     MSA_FLAG="--use-msa-server"
 fi
 
+SA_KEY_FLAG=()
+if [ -n "$GCS_SA_KEY_PATH" ]; then
+    SA_KEY_FLAG=(--gcs-sa-key "$GCS_SA_KEY_PATH")
+fi
+
 python /opt/run_boltz2.py \
     --input-dir "$WORKDIR/inputs" \
     --output-dir "$WORKDIR/results" \
@@ -65,9 +84,11 @@ python /opt/run_boltz2.py \
     --diffusion-samples "$DIFFUSION_SAMPLES" \
     $MSA_FLAG \
     --gcs-bucket "$GCS_BUCKET" \
-    --gcs-sa-key /tmp/gcs_key.json
+    "${SA_KEY_FLAG[@]}"
 
-# Clean up credentials
-rm -f /tmp/gcs_key.json
+# Clean up credentials only if we created them
+if [ -n "$GCS_SA_KEY_PATH" ]; then
+    rm -f "$GCS_SA_KEY_PATH"
+fi
 
 echo "Done."
